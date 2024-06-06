@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three Dice Problem</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .outcome {
+            font-size: 2em;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            margin: 5px;
+        }
+        table {
+            border: 1px solid black;
+            border-collapse: collapse;
+            margin: 20px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .guess-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .chart-container {
+            width: 20%;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Three Dice Problem</h1>
+    <div id="outcome" class="outcome">Roll the dice!</div>
+    <button onclick="play()">Play</button>
+    <button onclick="play100()">Play 100</button>
+    <button onclick="reset()">Reset</button>
+    <p id="counter">Plays: 0</p>
+
+    <div class="guess-buttons">
+        <button id="guess-fair" onclick="guessDie('Fair Die')">Guess Fair Die</button>
+        <button id="guess-even" onclick="guessDie('Even Die')">Guess Even Die</button>
+        <button id="guess-sixes" onclick="guessDie('Sixes Die')">Guess Sixes Die</button>
+    </div>
+
+    <div class="container">
+        <div>
+            <h2>Statistics</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Die</th>
+                        <th>Outcome</th>
+                        <th>Frequency</th>
+                    </tr>
+                </thead>
+                <tbody id="statistics"></tbody>
+            </table>
+        </div>
+
+        <div>
+            <h2>Outcome Frequencies</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Outcome</th>
+                        <th>Fair</th>
+                        <th>Even</th>
+                        <th>Sixes</th>
+                        <th>Percent</th>
+                        <th>Theoretical Percent</th>
+                    </tr>
+                </thead>
+                <tbody id="outcome-frequencies"></tbody>
+            </table>
+        </div>
+
+        <div>
+            <h2>Guess Statistics</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Die</th>
+                        <th>Frequency</th>
+                        <th>Percent Correct</th>
+                    </tr>
+                </thead>
+                <tbody id="guess-statistics">
+                    <tr>
+                        <td>Fair Die</td>
+                        <td id="fair-die-guess-frequency">0</td>
+                        <td id="fair-die-percent-correct">0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Even Die</td>
+                        <td id="even-die-guess-frequency">0</td>
+                        <td id="even-die-percent-correct">0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Sixes Die</td>
+                        <td id="sixes-die-guess-frequency">0</td>
+                        <td id="sixes-die-percent-correct">0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            <h2>Winnings Statistics</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Result</th>
+                        <th>Frequency</th>
+                    </tr>
+                </thead>
+                <tbody id="winnings-statistics">
+                    <tr>
+                        <td>Wins</td>
+                        <td id="wins-frequency">0</td>
+                    </tr>
+                    <tr>
+                        <td>Losses</td>
+                        <td id="losses-frequency">0</td>
+                    </tr>
+                    <tr>
+                        <td>Total Winnings</td>
+                        <td id="total-winnings">$0</td>
+                    </tr>
+                    <tr>
+                        <td>Average Winnings per Play</td>
+                        <td id="avg-winnings-per-play">$0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="frequencyChart"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const fairDie = [1, 2, 3, 4, 5, 6];
+        const evenDie = [2, 2, 4, 4, 6, 6];
+        const sixesDie = [6, 6, 6, 6, 6, 6];
+
+        let outcomes = {
+            "Fair Die": {},
+            "Even Die": {},
+            "Sixes Die": {}
+        };
+        let totalRolls = {
+            "Fair Die": 0,
+            "Even Die": 0,
+            "Sixes Die": 0
+        };
+        let guessStatistics = {
+            "Fair Die": { frequency: 0, correct: 0 },
+            "Even Die": { frequency: 0, correct: 0 },
+            "Sixes Die": { frequency: 0, correct: 0 }
+        };
+        let playCount = 0;
+        let currentOutcome = null;
+        let currentDie = null;
+        let wins = 0;
+        let losses = 0;
+        let isManualPlay = true;
+
+        const ctx = document.getElementById('frequencyChart').getContext('2d');
+        const frequencyChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Fair Die', 'Even Die', 'Sixes Die'],
+                datasets: [{
+                    label: 'Actual Frequency',
+                    data: [0, 0, 0],
+                    backgroundColor: ['rgba(75, 192, 192, 0.2)', 'rgba(54, 162, 235, 0.2)', 'rgba(255, 206, 86, 0.2)'],
+                    borderColor: ['rgba(75, 192, 192, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        function getRandomElement(array) {
+            return array[Math.floor(Math.random() * array.length)];
+        }
+
+        function play() {
+            isManualPlay = true;
+            const dice = ["Fair Die", "Even Die", "Sixes Die"];
+            currentDie = getRandomElement(dice);
+            let chosenDie;
+
+            if (currentDie === "Fair Die") chosenDie = fairDie;
+            else if (currentDie === "Even Die") chosenDie = evenDie;
+            else chosenDie = sixesDie;
+
+            currentOutcome = getRandomElement(chosenDie);
+
+            document.getElementById('outcome').innerText = `The outcome is: ${currentOutcome}`;
+        }
+
+        function play100() {
+            isManualPlay = false;
+            for (let i = 0; i < 100; i++) {
+                play();
+                let guess;
+                if ([1, 3, 5].includes(currentOutcome)) {
+                    guess = 'Fair Die';
+                } else if ([2, 4].includes(currentOutcome)) {
+                    guess = 'Even Die';
+                } else if (currentOutcome === 6) {
+                    guess = 'Sixes Die';
+                }
+                makeGuess(guess);
+            }
+            updateStatistics();
+        }
+
+        function makeGuess(guess) {
+            guessStatistics[guess].frequency++;
+
+            if (currentDie === guess) {
+                guessStatistics[guess].correct++;
+                wins++;
+            } else {
+                losses++;
+            }
+
+            if (!outcomes[currentDie][currentOutcome]) {
+                outcomes[currentDie][currentOutcome] = 0;
+            }
+            outcomes[currentDie][currentOutcome]++;
+            totalRolls[currentDie]++;
+            playCount++;
+        }
+
+        function guessDie(guess) {
+            if (!currentOutcome || !currentDie || !isManualPlay) return;
+
+            makeGuess(guess);
+            alert(`You guessed: ${guess}. The correct die was: ${currentDie}.`);
+            updateStatistics();
+        }
+
+        function updateStatistics() {
+            document.getElementById('counter').innerText = `Plays: ${playCount}`;
+
+            updateStatisticsTable();
+            updateOutcomeFrequenciesTable();
+            updateGuessStatisticsTable();
+            updateWinningsStatistics();
+            updateChart();
+
+            currentOutcome = null;
+            currentDie = null;
+            document.getElementById('outcome').innerText = 'Roll the dice!';
+        }
+
+        function updateStatisticsTable() {
+            const tbody = document.getElementById('statistics');
+            tbody.innerHTML = '';
+
+            for (const die in outcomes) {
+                for (const outcome in outcomes[die]) {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).innerText = die;
+                    row.insertCell(1).innerText = outcome;
+                    row.insertCell(2).innerText = outcomes[die][outcome];
+                }
+            }
+        }
+
+        function updateOutcomeFrequenciesTable() {
+            const tbody = document.getElementById('outcome-frequencies');
+            tbody.innerHTML = '';
+
+            const theoreticalPercentages = {
+                1: (1 / 18).toFixed(2),
+                2: (3 / 18).toFixed(2),
+                3: (1 / 18).toFixed(2),
+                4: (3 / 18).toFixed(2),
+                5: (1 / 18).toFixed(2),
+                6: (9 / 18).toFixed(2)
+            };
+
+            for (let outcome = 1; outcome <= 6; outcome++) {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerText = outcome;
+                const fairCount = outcomes["Fair Die"][outcome] || 0;
+                const evenCount = outcomes["Even Die"][outcome] || 0;
+                const sixesCount = outcomes["Sixes Die"][outcome] || 0;
+                row.insertCell(1).innerText = fairCount;
+                row.insertCell(2).innerText = evenCount;
+                row.insertCell(3).innerText = sixesCount;
+                const totalCount = fairCount + evenCount + sixesCount;
+                const percent = (totalCount / playCount).toFixed(2);
+                row.insertCell(4).innerText = percent;
+                row.insertCell(5).innerText = theoreticalPercentages[outcome];
+            }
+        }
+
+        function updateGuessStatisticsTable() {
+            document.getElementById('fair-die-guess-frequency').innerText = guessStatistics["Fair Die"].frequency;
+            document.getElementById('fair-die-percent-correct').innerText = ((guessStatistics["Fair Die"].correct / guessStatistics["Fair Die"].frequency) || 0).toFixed(2);
+
+            document.getElementById('even-die-guess-frequency').innerText = guessStatistics["Even Die"].frequency;
+            document.getElementById('even-die-percent-correct').innerText = ((guessStatistics["Even Die"].correct / guessStatistics["Even Die"].frequency) || 0).toFixed(2);
+
+            document.getElementById('sixes-die-guess-frequency').innerText = guessStatistics["Sixes Die"].frequency;
+            document.getElementById('sixes-die-percent-correct').innerText = ((guessStatistics["Sixes Die"].correct / guessStatistics["Sixes Die"].frequency) || 0).toFixed(2);
+        }
+
+        function updateWinningsStatistics() {
+            const totalWinnings = (wins * 1) - (losses * 2);
+            const avgWinningsPerPlay = (totalWinnings / playCount).toFixed(2);
+
+            document.getElementById('wins-frequency').innerText = wins;
+            document.getElementById('losses-frequency').innerText = losses;
+            document.getElementById('total-winnings').innerText = `$${totalWinnings}`;
+            document.getElementById('avg-winnings-per-play').innerText = `$${avgWinningsPerPlay}`;
+        }
+
+        function updateChart() {
+            frequencyChart.data.datasets[0].data = [
+                totalRolls["Fair Die"],
+                totalRolls["Even Die"],
+                totalRolls["Sixes Die"]
+            ];
+            frequencyChart.update();
+        }
+
+        function reset() {
+            outcomes = {
+                "Fair Die": {},
+                "Even Die": {},
+                "Sixes Die": {}
+            };
+            totalRolls = {
+                "Fair Die": 0,
+                "Even Die": 0,
+                "Sixes Die": 0
+            };
+            guessStatistics = {
+                "Fair Die": { frequency: 0, correct: 0 },
+                "Even Die": { frequency: 0, correct: 0 },
+                "Sixes Die": { frequency: 0, correct: 0 }
+            };
+            playCount = 0;
+            wins = 0;
+            losses = 0;
+            currentOutcome = null;
+            currentDie = null;
+            document.getElementById('outcome').innerText = 'Roll the dice!';
+            document.getElementById('counter').innerText = 'Plays: 0';
+            updateStatisticsTable();
+            updateOutcomeFrequenciesTable();
+            updateGuessStatisticsTable();
+            updateWinningsStatistics();
+            updateChart();
+        }
+    </script>
+</body>
+</html>
