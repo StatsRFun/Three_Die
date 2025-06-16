@@ -310,7 +310,7 @@
             if (!currentOutcome || !currentDie || !isManualPlay) return;
 
             makeGuess(guess);
-            alert(`You guessed: ${guess}. The correct die was: ${currentDie}.`);
+            alert(`You guessed: ${guess}. The outcome was: ${currentOutcome}. The correct die was: ${currentDie}.`);
             updateStatistics();
         }
 
